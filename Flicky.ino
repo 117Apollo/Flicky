@@ -3,9 +3,9 @@
 #include <Joystick.h>
 Joystick_ Joystick;
 
-#define inputSW0 0
-#define inputSW1 1
-#define inputSW2 2
+#define dataPin 0
+#define clockPin 1
+#define latchPin 2
 #define inputSW3 3
 #define inputSW4 4
 #define inputSW5 5
@@ -74,10 +74,13 @@ int previousStateSW6;
 int previousStateSW7;
 int previousStateSW8;
 
+byte previousStateSR;
+
 void setup() {
-  pinMode(inputSW0, INPUT);
-  pinMode(inputSW1, INPUT);
-  pinMode(inputSW2, INPUT);
+  pinMode(dataPin, INPUT);
+  pinMode(latchPin, OUTPUT);
+  pinMode(clockPin, OUTPUT);
+  
   pinMode(inputSW3, INPUT);
   pinMode(inputSW4, INPUT);
   pinMode(inputSW5, INPUT);
@@ -105,19 +108,19 @@ void setup() {
   previousStateRC2 = digitalRead(inputRC2);
   previousStateRC3 = digitalRead(inputRC3);
   previousStateRC4 = digitalRead(inputRC4);
+  
+  digitalWrite(latchPin, 1);
+  delayMicroseconds(20);
+  digitalWrite(latchPin, 0);
+  previousStateSR = shiftIn(dataPin, clockPin, MSBFIRST);
 }
 
 int check_switch(int currentState, int *previousState, int id){
   if (currentState != *previousState) {
     Serial.print(currentState);
     Serial.println(id);
-    //The below doesn't really work very well
-    //Joystick.setButton(id, currentState);
-     Joystick.setButton(id, 1);
-     delay(100);
-     Joystick.setButton(id, 0);  
+    Joystick.setButton(id, currentState); 
     *previousState = currentState;
-    //The reading flutters when switched to HIGH so this prevents a short on/off loop
     delay(500);
     return 0;
   }
@@ -166,10 +169,56 @@ int check_btn(int id, int currentStateBTN){
   return 0;
 }
 
+int check_shift(byte reg){
+  if(bitRead(reg, 1) != bitRead(previousStateSR, 1)){
+    Joystick.setButton(0, bitRead(reg, 1));
+    Serial.println("00");
+  }  
+  if(bitRead(reg, 2) != bitRead(previousStateSR, 2)){
+    Joystick.setButton(0, bitRead(reg, 2));
+    Serial.println("01");
+  }
+  if(bitRead(reg, 3) != bitRead(previousStateSR, 3)){
+    Joystick.setButton(0, bitRead(reg, 3));
+    Serial.println("02");
+  }
+  if(bitRead(reg, 4) == 0){
+     Joystick.setButton(20, 1);
+     delay(100);
+     Joystick.setButton(20, 0);  
+     delay(300);    
+    Serial.println("20");
+  }  
+  if(bitRead(reg, 5) == 0){
+     Joystick.setButton(21, 1);
+     delay(100);
+     Joystick.setButton(21, 0);  
+     delay(300);    
+    Serial.println("21");
+  }
+  if(bitRead(reg, 6) == 0){
+     Joystick.setButton(22, 1);
+     delay(100);
+     Joystick.setButton(22, 0);  
+     delay(300);    
+    Serial.println("22");
+  }
+  if(bitRead(reg, 7) == 0){
+     Joystick.setButton(23, 1);
+     delay(100);
+     Joystick.setButton(23, 0);  
+     delay(300);    
+    Serial.println("23");
+  }
+  previousStateSR = reg;
+}
+
 void loop() {
-  check_switch(digitalRead(inputSW0), &previousStateSW0, 0);
-  check_switch(digitalRead(inputSW1), &previousStateSW1, 1);
-  check_switch(digitalRead(inputSW2), &previousStateSW2, 2);
+  digitalWrite(latchPin, 1);
+  delayMicroseconds(20);
+  digitalWrite(latchPin, 0);
+  check_shift(shiftIn(dataPin, clockPin, MSBFIRST));
+  
   check_switch(digitalRead(inputSW3), &previousStateSW3, 3);
   check_switch(digitalRead(inputSW4), &previousStateSW4, 4);
   check_switch(digitalRead(inputSW5), &previousStateSW5, 5);
@@ -184,9 +233,4 @@ void loop() {
   check_rotor(17, 18, digitalRead(inputRC4), digitalRead(inputRD4), &previousStateRC4, &encdir4, &ccwblock4, &cwblock4);
   
   check_btn(19, digitalRead(inputRB0));  
-  //Most rotary click buttons not implement yet as ran out of inputs, need shift register
-  //check_btn(20, digitalRead(inputRB1));  
-  //check_btn(21, digitalRead(inputRB2));  
-  //check_btn(22, digitalRead(inputRB3));  
-  //check_btn(23, digitalRead(inputRB4));
 }
